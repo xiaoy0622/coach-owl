@@ -1,28 +1,31 @@
 import { Route, Routes } from 'react-router-dom'
-import { ComingSoonPage } from '@/pages/ComingSoonPage'
+import { StudentListPage } from './pages/StudentListPage'
+import { StudentNewPage } from './pages/StudentNewPage'
+import { StudentEditPage } from './pages/StudentEditPage'
+import { StudentProfilePage } from './pages/StudentProfilePage'
+import { ImportPage } from './pages/ImportPage'
+import { ImportReviewPage } from './pages/ImportReviewPage'
 
 /**
  * Students feature sub-router — mounted at /app/students/* (see App.tsx).
+ * Every screen is URL-addressable and refresh-safe (state loads from the route).
  *
- * Wave 2 (Students agent) owns this entire folder. Replace this stub with the
- * real feature: an index roster list + a `:id` profile route, e.g.
- *   <Route index element={<StudentListPage />} />
- *   <Route path=":id" element={<StudentProfilePage />} />
- * Use the `api` client + TanStack Query; keep every screen URL-addressable.
+ *   /app/students                  roster list (search / status / tag filters)
+ *   /app/students/new              add-student form
+ *   /app/students/import           Smart Import — paste / upload
+ *   /app/students/import/:jobId    review + edit candidates, then commit
+ *   /app/students/:id              student profile (details, guardians, notes)
+ *   /app/students/:id/edit         edit-student form
  */
 export default function StudentsRoutes() {
   return (
     <Routes>
-      <Route
-        index
-        element={
-          <ComingSoonPage
-            title="Students"
-            description="Your roster — names, subjects, contacts and credits."
-            blurb="Smart Import and student profiles are on the way. Soon you'll add students, track their lesson credits, and keep guardian details tidy — all in one calm list."
-          />
-        }
-      />
+      <Route index element={<StudentListPage />} />
+      <Route path="new" element={<StudentNewPage />} />
+      <Route path="import" element={<ImportPage />} />
+      <Route path="import/:jobId" element={<ImportReviewPage />} />
+      <Route path=":id" element={<StudentProfilePage />} />
+      <Route path=":id/edit" element={<StudentEditPage />} />
     </Routes>
   )
 }
