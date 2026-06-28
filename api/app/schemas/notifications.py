@@ -30,3 +30,11 @@ class NotificationOut(CamelModel):
     sent_at: datetime | None = None
     error: str | None = None
     created_at: datetime
+
+
+class OutboxRunOut(CamelModel):
+    """Counts from one outbox-processor run (dev/test flush trigger)."""
+
+    processed: int
+    sent: int
+    failed: int
