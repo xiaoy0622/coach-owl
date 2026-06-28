@@ -62,3 +62,24 @@ class LessonOut(LessonBase):
     capacity: int
     created_at: datetime
     updated_at: datetime
+
+
+class LessonConflict(CamelModel):
+    """One existing lesson that overlaps a proposed time (same coach)."""
+
+    lesson_id: uuid.UUID
+    coach_id: uuid.UUID
+    starts_at: datetime
+    duration_min: int
+
+
+class RecurrencePreviewRequest(CamelModel):
+    """Expand a recurrence rule into concrete occurrence start times (UTC)."""
+
+    recurrence: RecurrenceRuleCreate
+    limit: int = Field(default=100, ge=1, le=500)
+
+
+class RecurrencePreviewOut(CamelModel):
+    occurrences: list[datetime]  # ISO8601 UTC, tz-aware
+    count: int
