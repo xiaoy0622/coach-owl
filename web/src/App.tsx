@@ -30,6 +30,8 @@ import { Spinner } from '@/components/ui'
 const StudentsRoutes = lazy(() => import('@/features/students/routes'))
 const SchedulingRoutes = lazy(() => import('@/features/scheduling/routes'))
 const PaymentsRoutes = lazy(() => import('@/features/payments/routes'))
+const NotesRoutes = lazy(() => import('@/features/notes/routes'))
+const PublicSharePage = lazy(() => import('@/features/share/PublicSharePage'))
 
 function Lazy({ children }: { children: ReactNode }) {
   return (
@@ -52,12 +54,16 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
 
+      {/* Public, no-auth read-only share page (Wave 3 — features/share) */}
+      <Route path="/share/:token" element={<Lazy><PublicSharePage /></Lazy>} />
+
       <Route element={<RequireAuth />}>
         <Route path="/app" element={<AppLayout />}>
           <Route index element={<DashboardPage />} />
           <Route path="students/*" element={<Lazy><StudentsRoutes /></Lazy>} />
           <Route path="calendar/*" element={<Lazy><SchedulingRoutes /></Lazy>} />
           <Route path="payments/*" element={<Lazy><PaymentsRoutes /></Lazy>} />
+          <Route path="notes/*" element={<Lazy><NotesRoutes /></Lazy>} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Route>

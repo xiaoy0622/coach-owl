@@ -67,6 +67,16 @@ export const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
+    to: '/app/notes',
+    label: 'Notes',
+    icon: (
+      <svg {...iconProps}>
+        <path d="M5 3h11l3 3v15H5z" />
+        <path d="M9 8h6M9 12h6M9 16h3" />
+      </svg>
+    ),
+  },
+  {
     to: '/app/settings',
     label: 'Settings',
     icon: (
