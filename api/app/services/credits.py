@@ -129,6 +129,54 @@ def adjust_ledger(
     return entry
 
 
+def record_deduction(
+    db: Session,
+    org_id: uuid.UUID,
+    *,
+    student_id: uuid.UUID,
+    lesson_id: uuid.UUID | None = None,
+    count: int = 1,
+) -> CreditLedger:
+    """Row-lock the student, verify balance, append a ``-count`` deduct entry.
+
+    This is the core of :func:`deduct` but it does **not** commit — the caller
+    owns the transaction boundary. That lets a lesson completion (scheduling)
+    deduct the credit *atomically* with its status change: both the ledger
+    entry and ``lesson.credit_deducted`` land in one commit, so a failed deduct
+    (insufficient balance) rolls the completion back too. The row lock still
+    serializes concurrent deducts and the balance check still guarantees the
+    balance can never go negative (§4 invariant — "no over-deduct").
+    """
+    # Acquire the per-student lock (org-scoped). This serializes deducts.
+    locked = db.scalar(
+        select(Student.id)
+        .where(Student.id == student_id, Student.org_id == org_id)
+        .with_for_update()
+    )
+    if locked is None:
+        raise AppError("Student not found", code="not_found", status_code=404)
+
+    balance = get_balance(db, org_id, student_id)
+    if balance < count:
+        raise AppError(
+            "Insufficient credit balance",
+            code="insufficient_balance",
+            status_code=409,
+            details={"balance": balance, "requested": count},
+        )
+
+    entry = CreditLedger(
+        org_id=org_id,
+        student_id=student_id,
+        lesson_id=lesson_id,
+        delta=-count,
+        reason=LedgerReason.deduct,
+    )
+    db.add(entry)
+    db.flush()  # assign entry.id without ending the caller's transaction
+    return entry
+
+
 def deduct(
     db: Session, org_id: uuid.UUID, body: CreditDeductRequest
 ) -> CreditLedger:
@@ -138,32 +186,13 @@ def deduct(
     student blocks until this transaction commits; the balance is read *after*
     acquiring the lock, guaranteeing it can never go negative.
     """
-    # Acquire the per-student lock (org-scoped). This serializes deducts.
-    locked = db.scalar(
-        select(Student.id)
-        .where(Student.id == body.student_id, Student.org_id == org_id)
-        .with_for_update()
-    )
-    if locked is None:
-        raise AppError("Student not found", code="not_found", status_code=404)
-
-    balance = get_balance(db, org_id, body.student_id)
-    if balance < body.count:
-        raise AppError(
-            "Insufficient credit balance",
-            code="insufficient_balance",
-            status_code=409,
-            details={"balance": balance, "requested": body.count},
-        )
-
-    entry = CreditLedger(
-        org_id=org_id,
+    entry = record_deduction(
+        db,
+        org_id,
         student_id=body.student_id,
         lesson_id=body.lesson_id,
-        delta=-body.count,
-        reason=LedgerReason.deduct,
+        count=body.count,
     )
-    db.add(entry)
     db.commit()
     db.refresh(entry)
     return entry

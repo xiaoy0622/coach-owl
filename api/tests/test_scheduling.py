@@ -368,6 +368,17 @@ def test_cannot_reschedule_completed_lesson(client, db):
     org_id = reg["user"]["orgId"]
     coach_id = reg["user"]["id"]
     student_id = _make_student(db, org_id)
+    # Completing a lesson now deducts a credit (CO-C03), so seed a balance first.
+    client.post(
+        "/api/v1/credits/packs",
+        json={
+            "studentId": str(student_id),
+            "name": "single",
+            "totalSessions": 1,
+            "pricePerSession": "50.00",
+        },
+        headers=_auth(reg),
+    )
     lesson = client.post(
         "/api/v1/lessons",
         json={

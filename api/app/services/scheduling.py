@@ -17,6 +17,7 @@ Notifications services which are owned by other streams.
 """
 from __future__ import annotations
 
+import logging
 import uuid
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -31,7 +32,14 @@ from app.core.errors import AppError
 from app.models.enums import LessonStatus
 from app.models.organization import Organization
 from app.models.scheduling import Lesson, RecurrenceRule
+from app.models.student import Student
+from app.models.user import User
+from app.notifications.dispatcher import notify
+from app.notifications.hooks import low_balance_reminder
 from app.schemas.scheduling import LessonCreate, LessonUpdate, RecurrenceRuleBase
+from app.services import credits as credits_service
+
+logger = logging.getLogger(__name__)
 
 # A hard cap so an open-ended (no ``end_date``) weekly rule can't expand forever.
 MAX_OCCURRENCES = 500
@@ -347,6 +355,7 @@ def update_lesson(
     new_duration = (
         body.duration_min if body.duration_min is not None else lesson.duration_min
     )
+    rescheduled = False
     if rescheduling:
         hits = find_conflicts(
             db,
@@ -360,7 +369,10 @@ def update_lesson(
             _raise_conflict(hits)
         lesson.starts_at = new_starts_at
         lesson.duration_min = new_duration
+        rescheduled = True
 
+    status_changed_to: LessonStatus | None = None
+    deducted = False
     if body.status is not None and body.status != lesson.status:
         allowed = _ALLOWED_TRANSITIONS[lesson.status]
         if body.status not in allowed:
@@ -370,7 +382,11 @@ def update_lesson(
                 code="invalid_transition",
                 status_code=409,
             )
-        _apply_status_change(lesson, body)
+        # Deduction is appended in THIS transaction (no commit) so it lands
+        # atomically with the status change below — an insufficient balance
+        # rolls the completion back too.
+        deducted = _apply_status_change(db, org_id, lesson, body)
+        status_changed_to = body.status
 
     if body.location is not None:
         lesson.location = body.location
@@ -381,11 +397,49 @@ def update_lesson(
 
     db.commit()
     db.refresh(lesson)
+
+    # Post-commit, channel-agnostic side effects (CO-C03 / CO-K03). These write
+    # to the notification outbox and must never break a persisted status change.
+    _emit_status_side_effects(
+        db,
+        org_id,
+        lesson,
+        status_changed_to=status_changed_to,
+        rescheduled=rescheduled,
+        deducted=deducted,
+    )
     return lesson
 
 
-def _apply_status_change(lesson: Lesson, body: LessonUpdate) -> None:
-    """Apply a status transition and fire the (Wave-3) side-effect hooks."""
+def _should_deduct(status: LessonStatus, deduct_credit: bool | None) -> bool:
+    """Whether a status transition consumes a credit (CO-C03 policy).
+
+    - ``completed``: deduct by default (§4 invariant 2 — a completed lesson
+      burns one credit), unless the request explicitly opts out
+      (``deductCredit=false``).
+    - ``no_show``: opt-in only — deduct just when ``deductCredit=true``.
+    - ``cancelled`` (and a plain reschedule, which never reaches here): no
+      deduction. Cancelling frees the slot and refunds nothing/charges nothing.
+    """
+    if status == LessonStatus.completed:
+        return deduct_credit is not False
+    if status == LessonStatus.no_show:
+        return deduct_credit is True
+    return False
+
+
+def _apply_status_change(
+    db: Session, org_id: uuid.UUID, lesson: Lesson, body: LessonUpdate
+) -> bool:
+    """Apply a status transition and, per policy, deduct a credit.
+
+    Returns ``True`` when a credit was deducted (so the caller knows to check
+    for a low-balance reminder after committing). The deduction is appended to
+    the immutable ``credit_ledger`` via the Credits service *without* committing
+    — it shares this request's transaction so it lands atomically with the
+    status change and ``credit_deducted`` (§4 invariant 2). Idempotent: the
+    ``credit_deducted`` guard means a lesson can never be double-deducted.
+    """
     new_status = body.status
     if new_status in (LessonStatus.cancelled, LessonStatus.no_show):
         if body.cancel_reason is not None:
@@ -393,22 +447,126 @@ def _apply_status_change(lesson: Lesson, body: LessonUpdate) -> None:
 
     lesson.status = new_status
 
-    # --- Wave-3 hook: credit deduction (CO-K01 Credits service) -------------
-    # When a lesson is completed (or cancelled/no_show with a deduct policy),
-    # Wave 3 will post a -1 entry to the immutable credit_ledger via the Credits
-    # service and set ``lesson.credit_deducted``. We DO NOT touch the ledger or
-    # the balance here — that linkage belongs to the Credits stream. The
-    # ``deductCredit`` flag on the request is captured for that future call.
-    # TODO(CO-C03 / Wave 3): call credits_service.adjust_for_lesson(
-    #     lesson, deduct=body.deduct_credit) once Credits ships; it owns
-    #     ``credit_deducted`` and the ledger entry (§4 invariant 2).
-    _ = body.deduct_credit  # reserved; no-op until Credits service lands.
+    if lesson.credit_deducted or not _should_deduct(new_status, body.deduct_credit):
+        return False
 
-    # --- Wave-3 hook: notification emission (CO-N01 dispatcher) --------------
-    # A cancellation / reschedule should emit a channel-agnostic notification
-    # event (dedupe_key e.g. f"lesson:{lesson.id}:cancelled") via the
-    # Notifications dispatcher. Not wired here to avoid a cross-stream import
-    # before Notifications ships.
-    # TODO(CO-C03 / Wave 3): notifications.dispatch(
-    #     event="lesson_cancelled", recipient=..., template=...,
-    #     dedupe_key=f"lesson:{lesson.id}:{new_status.value}").
+    # Raises ``insufficient_balance`` (409) if the student is out of credit,
+    # which rolls back the whole status change (no commit has happened yet).
+    credits_service.record_deduction(
+        db,
+        org_id,
+        student_id=lesson.student_id,
+        lesson_id=lesson.id,
+        count=1,
+    )
+    lesson.credit_deducted = True
+    return True
+
+
+def _recipient_for(db: Session, lesson: Lesson) -> str | None:
+    """Notification recipient: the student's email, falling back to the coach's."""
+    student = db.get(Student, lesson.student_id)
+    if student is not None and student.email:
+        return student.email
+    coach = db.get(User, lesson.coach_id)
+    if coach is not None and coach.email:
+        return coach.email
+    return None
+
+
+def _lesson_payload(lesson: Lesson) -> dict:
+    return {
+        "lessonId": str(lesson.id),
+        "studentId": str(lesson.student_id),
+        "coachId": str(lesson.coach_id),
+        "startsAt": _ensure_utc(lesson.starts_at).isoformat(),
+        "status": lesson.status.value,
+    }
+
+
+def _safe_notify(
+    db: Session,
+    org_id: uuid.UUID,
+    lesson: Lesson,
+    *,
+    template: str,
+    dedupe_key: str,
+) -> None:
+    """Enqueue an outbox notification, swallowing any failure (never break the
+    already-committed status change)."""
+    try:
+        recipient = _recipient_for(db, lesson)
+        if recipient is None:
+            return
+        notify(
+            db,
+            org_id=org_id,
+            template=template,
+            recipient=recipient,
+            payload=_lesson_payload(lesson),
+            dedupe_key=dedupe_key,
+        )
+    except Exception:  # noqa: BLE001 — side effect must not surface to caller
+        db.rollback()
+        logger.exception(
+            "Failed to enqueue %s notification for lesson %s", template, lesson.id
+        )
+
+
+def _emit_status_side_effects(
+    db: Session,
+    org_id: uuid.UUID,
+    lesson: Lesson,
+    *,
+    status_changed_to: LessonStatus | None,
+    rescheduled: bool,
+    deducted: bool,
+) -> None:
+    """Fire post-commit linkages: low-balance reminder + cancel/reschedule notice."""
+    # CO-K03 — after a deduct, nudge once if the balance fell to/under threshold.
+    if deducted:
+        try:
+            threshold = credits_service.DEFAULT_LOW_BALANCE_THRESHOLD
+            balance = credits_service.get_balance(db, org_id, lesson.student_id)
+            if balance <= threshold:
+                recipient = _recipient_for(db, lesson)
+                if recipient is not None:
+                    student = db.get(Student, lesson.student_id)
+                    low_balance_reminder(
+                        db,
+                        org_id=org_id,
+                        student_id=lesson.student_id,
+                        recipient=recipient,
+                        balance=balance,
+                        threshold=threshold,
+                        student_name=student.name if student else None,
+                    )
+        except Exception:  # noqa: BLE001 — reminder must not break the request
+            db.rollback()
+            logger.exception(
+                "Failed to raise low-balance reminder for lesson %s", lesson.id
+            )
+
+    # CO-C03 — a cancellation or reschedule emits a channel-agnostic notice. A
+    # cancel wins over a reschedule when both happen in the same PATCH.
+    if status_changed_to == LessonStatus.cancelled:
+        _safe_notify(
+            db,
+            org_id,
+            lesson,
+            template="lesson_cancelled",
+            dedupe_key=f"lesson:{lesson.id}:cancelled",
+        )
+    elif rescheduled:
+        # New time in the key so each distinct reschedule notifies once while a
+        # replayed PATCH to the same time stays idempotent.
+        _safe_notify(
+            db,
+            org_id,
+            lesson,
+            template="lesson_rescheduled",
+            dedupe_key=(
+                f"lesson:{lesson.id}:rescheduled:"
+                f"{_ensure_utc(lesson.starts_at).isoformat()}"
+            ),
+        )
