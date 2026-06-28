@@ -23,6 +23,15 @@ class LessonNoteCreate(CamelModel):
     audio_url: str | None = None
 
 
+class LessonNoteUpdate(CamelModel):
+    """Patch a saved note (re-edit the confirmed structure / raw jot)."""
+
+    raw_input: str | None = None
+    structured: StructuredNote | None = None
+    source: NoteSource | None = None
+    audio_url: str | None = None
+
+
 class LessonNoteOut(CamelModel):
     id: uuid.UUID
     org_id: uuid.UUID

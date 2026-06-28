@@ -1,27 +1,25 @@
 import { Route, Routes } from 'react-router-dom'
-import { ComingSoonPage } from '@/pages/ComingSoonPage'
+import { NotesTimelinePage } from './pages/NotesTimelinePage'
+import { NoteCapturePage } from './pages/NoteCapturePage'
+import { NoteDetailPage } from './pages/NoteDetailPage'
 
 /**
  * Notes feature sub-router — mounted at /app/notes/* (see App.tsx).
+ * Every screen is URL-addressable and refresh-safe (state loads from the route).
  *
- * Wave 3 (AI lesson notes agent) owns this entire folder. Replace this stub
- * with the real feature: a per-student/lesson notes timeline and the
- * "jot/speak → structured summary" capture flow (confirm-before-save).
- * Use the api client + TanStack Query; keep every screen URL-addressable.
+ *   /app/notes                 progress-note timeline (filter via ?student=<id>)
+ *   /app/notes/new             capture flow: jot → AI structure → confirm → save
+ *   /app/notes/:id             view / re-edit / delete a saved note
+ *
+ * AI output is only ever a candidate — the coach confirms/edits before it is
+ * persisted (CoachOwl-Execution-Plan §1.4 铁律).
  */
 export default function NotesRoutes() {
   return (
     <Routes>
-      <Route
-        index
-        element={
-          <ComingSoonPage
-            title="Lesson notes"
-            description="Quick notes after class, tidied into progress summaries."
-            blurb="Jot a few words or speak after a lesson and CoachOwl turns it into a clean, shareable progress note — tracked across lessons for every student."
-          />
-        }
-      />
+      <Route index element={<NotesTimelinePage />} />
+      <Route path="new" element={<NoteCapturePage />} />
+      <Route path=":id" element={<NoteDetailPage />} />
     </Routes>
   )
 }
