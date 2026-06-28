@@ -2,8 +2,9 @@
 from __future__ import annotations
 
 import uuid
+from datetime import date
 
-from sqlalchemy import Boolean, ForeignKey, String, Text
+from sqlalchemy import Boolean, Date, ForeignKey, String, Text, false
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -27,6 +28,11 @@ class Student(OrgScopedMixin, Base):
         ARRAY(String), nullable=False, default=list
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Minor (under-18) flag — drives the "needs a primary guardian" rule.
+    is_minor: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    date_of_birth: Mapped[date | None] = mapped_column(Date, nullable=True)
 
 
 class Guardian(OrgScopedMixin, Base):

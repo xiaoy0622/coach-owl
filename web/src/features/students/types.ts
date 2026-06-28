@@ -12,6 +12,8 @@ export interface Student {
   status: StudentStatus
   tags: string[]
   notes: string | null
+  isMinor: boolean
+  dateOfBirth: string | null
   createdAt: string
   updatedAt: string
 }
@@ -23,6 +25,8 @@ export interface StudentCreate {
   status?: StudentStatus
   tags?: string[]
   notes?: string | null
+  isMinor?: boolean
+  dateOfBirth?: string | null
 }
 
 export type StudentUpdate = Partial<StudentCreate>

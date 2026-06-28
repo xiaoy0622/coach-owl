@@ -2,11 +2,9 @@
 
 A student may have multiple guardians; one (or more) can be ``is_primary``.
 
-Minor students: the data model has no dedicated date-of-birth / minor flag, so
-"minor" is signalled by a ``minor`` tag on the student (case-insensitive). For a
+Minor students are flagged by the first-class ``students.is_minor`` column. For a
 minor student we enforce that at least one primary guardian remains — you cannot
-delete or demote the last primary guardian of a minor. (Reported as a model gap
-to the orchestrator; this is the agreed work-around.)
+delete or demote the last primary guardian of a minor.
 """
 from __future__ import annotations
 
@@ -19,8 +17,6 @@ from app.core.deps import scoped
 from app.core.errors import AppError
 from app.models.student import Guardian, Student
 from app.schemas.guardians import GuardianCreate, GuardianUpdate
-
-MINOR_TAG = "minor"
 
 
 def _get_student(
@@ -38,7 +34,7 @@ def _get_student(
 
 
 def is_minor(student: Student) -> bool:
-    return any((t or "").strip().lower() == MINOR_TAG for t in student.tags)
+    return bool(student.is_minor)
 
 
 def _get_guardian(

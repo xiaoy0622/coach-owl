@@ -79,7 +79,7 @@ export function GuardiansSection({
 
       {isMinor && !hasPrimary && guardians.length >= 0 && (
         <div className="mb-4 rounded-xl border border-amber/30 bg-amber-soft/60 px-3.5 py-3 text-sm font-semibold text-amber-ink">
-          This student is tagged “minor” — add at least one primary guardian.
+          This student is a minor — add at least one primary guardian.
         </div>
       )}
 

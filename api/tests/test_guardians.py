@@ -61,7 +61,7 @@ def test_create_guardian_rejects_foreign_student(client):
 
 def test_minor_must_keep_primary_guardian_on_delete(client):
     h = _auth(client)
-    s = _student(client, h, tags=["minor"])
+    s = _student(client, h, isMinor=True)
     g = client.post(
         "/api/v1/guardians",
         json={"studentId": s["id"], "name": "Sole Parent", "isPrimary": True},
@@ -82,7 +82,7 @@ def test_minor_must_keep_primary_guardian_on_delete(client):
 
 def test_minor_with_two_primaries_can_remove_one(client):
     h = _auth(client)
-    s = _student(client, h, tags=["minor"])
+    s = _student(client, h, isMinor=True)
     g1 = client.post(
         "/api/v1/guardians",
         json={"studentId": s["id"], "name": "P1", "isPrimary": True},
@@ -98,7 +98,7 @@ def test_minor_with_two_primaries_can_remove_one(client):
 
 def test_non_minor_primary_can_be_removed(client):
     h = _auth(client)
-    s = _student(client, h)  # no "minor" tag
+    s = _student(client, h)  # is_minor defaults to false
     g = client.post(
         "/api/v1/guardians",
         json={"studentId": s["id"], "name": "Only", "isPrimary": True},

@@ -37,6 +37,31 @@ def test_create_and_get_student(client):
     assert got.json()["id"] == s["id"]
 
 
+def test_is_minor_and_dob_round_trip(client):
+    h = _auth(client)
+    # Defaults: not a minor, no DOB.
+    s = _create(client, h).json()
+    assert s["isMinor"] is False
+    assert s["dateOfBirth"] is None
+
+    # Create with the new fields set (camelCase in/out).
+    s2 = _create(
+        client, h, name="Kid", isMinor=True, dateOfBirth="2015-03-04"
+    ).json()
+    assert s2["isMinor"] is True
+    assert s2["dateOfBirth"] == "2015-03-04"
+
+    # Patch them.
+    r = client.patch(
+        f"/api/v1/students/{s2['id']}",
+        json={"isMinor": False, "dateOfBirth": None},
+        headers=h,
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["isMinor"] is False
+    assert r.json()["dateOfBirth"] is None
+
+
 def test_update_and_delete_student(client):
     h = _auth(client)
     s = _create(client, h).json()

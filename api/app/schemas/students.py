@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
 from pydantic import EmailStr, Field
 
@@ -17,6 +17,8 @@ class StudentBase(CamelModel):
     status: StudentStatus = StudentStatus.active
     tags: list[str] = Field(default_factory=list)
     notes: str | None = None
+    is_minor: bool = False
+    date_of_birth: date | None = None
 
 
 class StudentCreate(StudentBase):
@@ -30,6 +32,8 @@ class StudentUpdate(CamelModel):
     status: StudentStatus | None = None
     tags: list[str] | None = None
     notes: str | None = None
+    is_minor: bool | None = None
+    date_of_birth: date | None = None
 
 
 class StudentOut(StudentBase):

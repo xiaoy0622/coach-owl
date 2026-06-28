@@ -35,7 +35,7 @@ export function StudentProfilePage() {
     )
   }
 
-  const isMinor = student.tags.some((t) => t.toLowerCase() === 'minor')
+  const isMinor = student.isMinor
 
   function del() {
     remove.mutate(student!.id, {
@@ -80,6 +80,8 @@ export function StudentProfilePage() {
               </Field>
               <Field label="Email">{student.email || '—'}</Field>
               <Field label="Phone">{student.phone || '—'}</Field>
+              <Field label="Date of birth">{formatDob(student.dateOfBirth)}</Field>
+              <Field label="Minor">{student.isMinor ? 'Yes' : 'No'}</Field>
               <Field label="Tags">
                 {student.tags.length > 0 ? (
                   <div className="flex flex-wrap gap-1.5">
@@ -139,6 +141,13 @@ export function StudentProfilePage() {
       </div>
     </>
   )
+}
+
+function formatDob(dob: string | null): string {
+  if (!dob) return '—'
+  // Render the ISO date (YYYY-MM-DD) as DD/MM/YYYY (en-AU) without timezone drift.
+  const [y, m, d] = dob.split('-')
+  return y && m && d ? `${d}/${m}/${y}` : dob
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

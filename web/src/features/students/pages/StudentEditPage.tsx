@@ -50,6 +50,8 @@ export function StudentEditPage() {
             status: student.status,
             tags: student.tags.join(', '),
             notes: student.notes ?? '',
+            isMinor: student.isMinor,
+            dateOfBirth: student.dateOfBirth ?? '',
           }}
           submitLabel="Save changes"
           pending={update.isPending}

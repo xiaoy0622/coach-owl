@@ -53,6 +53,8 @@ def create_student(
         status=data.status,
         tags=_clean_tags(data.tags),
         notes=data.notes,
+        is_minor=data.is_minor,
+        date_of_birth=data.date_of_birth,
     )
     db.add(student)
     db.commit()
@@ -140,6 +142,10 @@ def update_student(
         student.tags = _clean_tags(fields["tags"])
     if "notes" in fields:
         student.notes = fields["notes"]
+    if "is_minor" in fields and fields["is_minor"] is not None:
+        student.is_minor = fields["is_minor"]
+    if "date_of_birth" in fields:
+        student.date_of_birth = fields["date_of_birth"]
 
     db.commit()
     db.refresh(student)

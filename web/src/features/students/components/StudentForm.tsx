@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button, Input, InlineError, Select } from '@/components/ui'
+import { Button, Input, InlineError, Select, Toggle } from '@/components/ui'
 import type { StudentCreate, StudentStatus } from '../types'
 
 const STATUS_OPTIONS = [
@@ -15,6 +15,8 @@ export interface StudentFormValues {
   status: StudentStatus
   tags: string
   notes: string
+  isMinor: boolean
+  dateOfBirth: string
 }
 
 function toValues(initial?: Partial<StudentFormValues>): StudentFormValues {
@@ -25,6 +27,8 @@ function toValues(initial?: Partial<StudentFormValues>): StudentFormValues {
     status: (initial?.status as StudentStatus) ?? 'active',
     tags: initial?.tags ?? '',
     notes: initial?.notes ?? '',
+    isMinor: initial?.isMinor ?? false,
+    dateOfBirth: initial?.dateOfBirth ?? '',
   }
 }
 
@@ -39,6 +43,8 @@ function valuesToPayload(v: StudentFormValues): StudentCreate {
       .map((t) => t.trim())
       .filter(Boolean),
     notes: v.notes.trim() || null,
+    isMinor: v.isMinor,
+    dateOfBirth: v.dateOfBirth.trim() || null,
   }
 }
 
@@ -111,8 +117,26 @@ export function StudentForm({
           label="Tags"
           value={form.tags}
           onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))}
-          placeholder="vce, math, minor"
-          hint="Comma-separated. Tag a child “minor” to require a primary guardian."
+          placeholder="vce, math"
+          hint="Comma-separated."
+        />
+      </div>
+
+      <div className="grid items-end gap-5 sm:grid-cols-2">
+        <Input
+          label="Date of birth"
+          type="date"
+          value={form.dateOfBirth}
+          onChange={(e) =>
+            setForm((f) => ({ ...f, dateOfBirth: e.target.value }))
+          }
+        />
+        <Toggle
+          id="student-is-minor"
+          checked={form.isMinor}
+          onChange={(checked) => setForm((f) => ({ ...f, isMinor: checked }))}
+          label="Minor (under 18)"
+          description="Requires at least one primary guardian."
         />
       </div>
 
