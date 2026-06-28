@@ -1,0 +1,24 @@
+[project]
+name = "coachowl-api"
+version = "0.1.0"
+description = "CoachOwl API — lightweight tutor/coach management SaaS (AU)."
+requires-python = ">=3.12"
+
+[tool.ruff]
+target-version = "py312"
+line-length = 90
+extend-exclude = [".venv", "alembic/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "N"]
+ignore = [
+    "B008",  # FastAPI uses function calls (Depends/Query) in argument defaults
+]
+
+[tool.ruff.lint.per-file-ignores]
+"app/api/v1/*.py" = ["ARG001"]  # placeholder route params unused until Wave 2
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+addopts = "-q"

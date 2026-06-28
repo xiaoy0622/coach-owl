@@ -1,0 +1,56 @@
+name: coachowl
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: coachowl_postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: coachowl
+    ports:
+      - "5434:5432"
+    volumes:
+      - coachowl_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d coachowl"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7
+    container_name: coachowl_redis
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: coachowl_api
+    environment:
+      # Inside the compose network, reach postgres/redis by service name.
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/coachowl
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET: ${JWT_SECRET:-dev-insecure-secret-change-me}
+    ports:
+      # Host 8000 is occupied in this environment; publish on 8001 -> 8000.
+      - "8001:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+volumes:
+  coachowl_pgdata:
+    name: coachowl_pgdata
