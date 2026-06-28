@@ -1,3 +1,4 @@
+import { lazy, Suspense, type ReactNode } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { RequireAuth } from '@/auth/RequireAuth'
 import { AppLayout } from '@/components/AppLayout'
@@ -6,11 +7,7 @@ import { RegisterPage } from '@/pages/RegisterPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { NotFoundPage } from '@/pages/NotFoundPage'
-import {
-  CalendarPage,
-  PaymentsPage,
-  StudentsPage,
-} from '@/pages/domain-pages'
+import { Spinner } from '@/components/ui'
 
 /**
  * Route table — every screen is URL-addressable (CoachOwl architecture rule).
@@ -20,12 +17,34 @@ import {
  *   /register         → public sign-up
  *   /app              → protected shell (RequireAuth)
  *     index           → Dashboard
- *     /students       → Students (Wave 2)
- *     /calendar       → Calendar (Wave 2)
- *     /payments       → Payments (Wave 2)
+ *     /students/*     → Students feature sub-router  (Wave 2 — features/students)
+ *     /calendar/*     → Scheduling feature sub-router (Wave 2 — features/scheduling)
+ *     /payments/*     → Payments feature sub-router   (Wave 2 — features/payments)
  *     /settings       → Org settings (live, PATCH /api/v1/org)
  *   *                 → 404
+ *
+ * Each Wave-2 domain is mounted as a self-contained sub-router (`<domain>/*`)
+ * lazy-loaded from its feature folder. Domain agents own everything inside
+ * `features/<domain>/` (including nested routes) and never edit this file.
  */
+const StudentsRoutes = lazy(() => import('@/features/students/routes'))
+const SchedulingRoutes = lazy(() => import('@/features/scheduling/routes'))
+const PaymentsRoutes = lazy(() => import('@/features/payments/routes'))
+
+function Lazy({ children }: { children: ReactNode }) {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex justify-center p-16">
+          <Spinner />
+        </div>
+      }
+    >
+      {children}
+    </Suspense>
+  )
+}
+
 export default function App() {
   return (
     <Routes>
@@ -36,9 +55,9 @@ export default function App() {
       <Route element={<RequireAuth />}>
         <Route path="/app" element={<AppLayout />}>
           <Route index element={<DashboardPage />} />
-          <Route path="students" element={<StudentsPage />} />
-          <Route path="calendar" element={<CalendarPage />} />
-          <Route path="payments" element={<PaymentsPage />} />
+          <Route path="students/*" element={<Lazy><StudentsRoutes /></Lazy>} />
+          <Route path="calendar/*" element={<Lazy><SchedulingRoutes /></Lazy>} />
+          <Route path="payments/*" element={<Lazy><PaymentsRoutes /></Lazy>} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Route>

@@ -6,6 +6,7 @@ from collections.abc import Iterator
 
 import pytest
 from sqlalchemy import create_engine, text
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 from starlette.testclient import TestClient
 
@@ -20,6 +21,10 @@ TEST_URL = os.environ.get(
     "TEST_DATABASE_URL",
     "postgresql+psycopg://postgres:postgres@localhost:5434/coachowl_test",
 )
+# Derive the DB name from TEST_DATABASE_URL so parallel test runs (e.g. several
+# Wave 2 agents) can each isolate by setting a unique TEST_DATABASE_URL
+# (...coachowl_test_students, ..._scheduling, ..._payments, etc.).
+TEST_DB_NAME = make_url(TEST_URL).database
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -27,15 +32,15 @@ def _create_test_database() -> Iterator[None]:
     admin = create_engine(ADMIN_URL, isolation_level="AUTOCOMMIT")
     with admin.connect() as conn:
         conn.execute(
-            text("DROP DATABASE IF EXISTS coachowl_test WITH (FORCE)")
+            text(f'DROP DATABASE IF EXISTS "{TEST_DB_NAME}" WITH (FORCE)')
         )
-        conn.execute(text("CREATE DATABASE coachowl_test"))
+        conn.execute(text(f'CREATE DATABASE "{TEST_DB_NAME}"'))
     admin.dispose()
     yield
     admin = create_engine(ADMIN_URL, isolation_level="AUTOCOMMIT")
     with admin.connect() as conn:
         conn.execute(
-            text("DROP DATABASE IF EXISTS coachowl_test WITH (FORCE)")
+            text(f'DROP DATABASE IF EXISTS "{TEST_DB_NAME}" WITH (FORCE)')
         )
     admin.dispose()
 
