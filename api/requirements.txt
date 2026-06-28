@@ -12,3 +12,4 @@ python-dateutil==2.9.0.post0
 pytest==8.3.4
 httpx==0.28.1
 ruff==0.8.4
+fpdf2==2.8.2

@@ -1,27 +1,28 @@
 import { Route, Routes } from 'react-router-dom'
-import { ComingSoonPage } from '@/pages/ComingSoonPage'
+import { OverviewPage } from '@/features/payments/pages/OverviewPage'
+import { RecordPaymentPage } from '@/features/payments/pages/RecordPaymentPage'
+import { PacksPage } from '@/features/payments/pages/PacksPage'
+import { InvoicesPage } from '@/features/payments/pages/InvoicesPage'
+import { NewInvoicePage } from '@/features/payments/pages/NewInvoicePage'
 
 /**
  * Payments feature sub-router — mounted at /app/payments/* (see App.tsx).
  *
- * Wave 2 (Payments agent) owns this entire folder. Replace this stub with the
- * real feature: income overview (paid/outstanding this month), record a
- * payment, lesson packs/credits, and AUD invoices with GST. Use the `api`
- * client + TanStack Query; keep every screen URL-addressable.
+ * Every screen is URL-addressable (CoachOwl architecture rule):
+ *   index            → income overview + month-end outstanding
+ *   /record          → record a payment
+ *   /packs           → lesson packs + balance (?student=<id> deep-links a student)
+ *   /invoices        → invoice list + PDF download
+ *   /invoices/new    → generate an invoice (GST-aware)
  */
 export default function PaymentsRoutes() {
   return (
     <Routes>
-      <Route
-        index
-        element={
-          <ComingSoonPage
-            title="Payments"
-            description="Income, lesson packs and AUD invoices with GST."
-            blurb="Record payments, sell lesson packs, and generate tidy AUD invoices with GST handled — ready when tax time comes."
-          />
-        }
-      />
+      <Route index element={<OverviewPage />} />
+      <Route path="record" element={<RecordPaymentPage />} />
+      <Route path="packs" element={<PacksPage />} />
+      <Route path="invoices" element={<InvoicesPage />} />
+      <Route path="invoices/new" element={<NewInvoicePage />} />
     </Routes>
   )
 }

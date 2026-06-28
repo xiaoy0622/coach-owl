@@ -49,6 +49,21 @@ class LedgerAdjustRequest(CamelModel):
     pack_id: uuid.UUID | None = None
 
 
+class CreditDeductRequest(CamelModel):
+    """Deduct credit(s) when a lesson is consumed.
+
+    Goes through row-locking so concurrent deducts can never over-deduct
+    (§4 invariant). ``count`` is the number of credits to remove (default 1).
+    """
+
+    student_id: uuid.UUID
+    lesson_id: uuid.UUID | None = None
+    count: int = Field(default=1, gt=0)
+
+
 class BalanceOut(CamelModel):
     student_id: uuid.UUID
     balance: int
+    # Configurable low-balance threshold + a derived flag for the UI (CO-K01).
+    threshold: int = 0
+    low_balance: bool = False
