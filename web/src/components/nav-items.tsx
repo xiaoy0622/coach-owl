@@ -36,6 +36,16 @@ export const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
+    to: '/app/onboarding',
+    label: 'Get started',
+    icon: (
+      <svg {...iconProps}>
+        <path d="M5 12.5 10 17.5 19 6.5" />
+        <circle cx="12" cy="12" r="9.5" />
+      </svg>
+    ),
+  },
+  {
     to: '/app/students',
     label: 'Students',
     icon: (

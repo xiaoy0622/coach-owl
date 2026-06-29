@@ -27,6 +27,7 @@ import { Spinner } from '@/components/ui'
  * lazy-loaded from its feature folder. Domain agents own everything inside
  * `features/<domain>/` (including nested routes) and never edit this file.
  */
+const OnboardingRoutes = lazy(() => import('@/features/onboarding/routes'))
 const StudentsRoutes = lazy(() => import('@/features/students/routes'))
 const SchedulingRoutes = lazy(() => import('@/features/scheduling/routes'))
 const PaymentsRoutes = lazy(() => import('@/features/payments/routes'))
@@ -60,6 +61,7 @@ export default function App() {
       <Route element={<RequireAuth />}>
         <Route path="/app" element={<AppLayout />}>
           <Route index element={<DashboardPage />} />
+          <Route path="onboarding/*" element={<Lazy><OnboardingRoutes /></Lazy>} />
           <Route path="students/*" element={<Lazy><StudentsRoutes /></Lazy>} />
           <Route path="calendar/*" element={<Lazy><SchedulingRoutes /></Lazy>} />
           <Route path="payments/*" element={<Lazy><PaymentsRoutes /></Lazy>} />
