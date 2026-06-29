@@ -5,6 +5,7 @@ from fastapi import APIRouter
 
 from app.api.v1 import (
     auth,
+    compliance,
     credits,
     guardians,
     imports,
@@ -31,3 +32,4 @@ api_router.include_router(notifications.router)
 api_router.include_router(lesson_notes.router)
 api_router.include_router(share_links.router)
 api_router.include_router(imports.router)
+api_router.include_router(compliance.router)
