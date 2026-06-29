@@ -6,10 +6,16 @@ the codebase never imports a concrete adapter. Register a new channel's adapter
 """
 from __future__ import annotations
 
+import logging
+
+from app.core.config import settings
 from app.core.errors import AppError
 from app.models.enums import NotificationChannel
-from app.notifications.adapters.base import NotificationAdapter
+from app.notifications.adapters.base import EmailAdapter, NotificationAdapter
 from app.notifications.adapters.console import ConsoleEmailAdapter
+from app.notifications.adapters.resend import ResendEmailAdapter
+
+logger = logging.getLogger("coachowl.notifications.email")
 
 
 class AdapterRegistry:
@@ -36,7 +42,32 @@ class AdapterRegistry:
         return list(self._adapters)
 
 
-# Process-wide default: email -> console (MVP). Wave 3b/later swap the email
-# adapter (Resend/SES) or register additional channels here.
+# email_provider value -> adapter factory. A future SES adapter is one entry here
+# (``"ses": SesEmailAdapter``) plus the config value — nothing else changes.
+_EMAIL_ADAPTERS: dict[str, type[EmailAdapter]] = {
+    "console": ConsoleEmailAdapter,
+    "resend": ResendEmailAdapter,
+}
+
+
+def build_email_adapter(provider: str | None = None) -> EmailAdapter:
+    """Return the email adapter for ``provider`` (defaults to settings).
+
+    Unknown providers fall back to the console adapter with a warning so a
+    misconfiguration degrades safely instead of crashing process startup.
+    """
+    name = (provider or settings.email_provider or "console").lower()
+    adapter_cls = _EMAIL_ADAPTERS.get(name)
+    if adapter_cls is None:
+        logger.warning(
+            "Unknown email_provider %r; falling back to console adapter", name
+        )
+        adapter_cls = ConsoleEmailAdapter
+    return adapter_cls()
+
+
+# Process-wide default. The email adapter is chosen by ``settings.email_provider``
+# (default ``console`` — logs only, no key). Set it to ``resend`` to deliver for
+# real; add another channel (SMS, push) with a further ``register`` call.
 default_registry = AdapterRegistry()
-default_registry.register(ConsoleEmailAdapter())
+default_registry.register(build_email_adapter())

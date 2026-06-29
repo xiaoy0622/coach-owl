@@ -5,8 +5,9 @@ and outbox processor only ever talk to the :class:`AdapterRegistry`, so adding a
 new channel (SMS, push) later is a new adapter + one ``register`` call — no
 business-logic change.
 
-MVP ships only :class:`ConsoleEmailAdapter` (logs, no network). Resend/SES drop in
-later behind the same :class:`EmailAdapter` interface.
+The email adapter is selectable by ``settings.email_provider`` (``console`` by
+default — logs, no network; ``resend`` for real delivery). :class:`SesEmailAdapter`
+drops in later behind the same :class:`EmailAdapter` interface.
 """
 from __future__ import annotations
 
@@ -16,13 +17,20 @@ from app.notifications.adapters.base import (
     SendResult,
 )
 from app.notifications.adapters.console import ConsoleEmailAdapter
-from app.notifications.adapters.registry import AdapterRegistry, default_registry
+from app.notifications.adapters.registry import (
+    AdapterRegistry,
+    build_email_adapter,
+    default_registry,
+)
+from app.notifications.adapters.resend import ResendEmailAdapter
 
 __all__ = [
     "AdapterRegistry",
     "ConsoleEmailAdapter",
     "EmailAdapter",
     "NotificationAdapter",
+    "ResendEmailAdapter",
     "SendResult",
+    "build_email_adapter",
     "default_registry",
 ]

@@ -45,6 +45,18 @@ class Settings(BaseSettings):
     anthropic_timeout: float = 8.0
     anthropic_max_tokens: int = 1024
 
+    # Email delivery (CO-N02). ``email_provider`` selects the email adapter the
+    # registry installs: ``console`` (default — logs only, no key, used by tests
+    # and local dev) or ``resend`` (real REST send). A future ``ses`` value slots
+    # in the same way. When provider=resend but ``resend_api_key`` is unset, the
+    # adapter degrades to a logged ``SendResult.failure`` (never crashes the
+    # worker) — keep the default ``console`` so nothing offline needs a key.
+    email_provider: str = "console"
+    resend_api_key: str | None = None
+    email_from: str = "CoachOwl <noreply@coachowl.example>"
+    resend_base_url: str = "https://api.resend.com"
+    resend_timeout: float = 8.0
+
 
 @lru_cache
 def get_settings() -> Settings:
