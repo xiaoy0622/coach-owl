@@ -16,10 +16,9 @@ edits it before anything is persisted.
 """
 from __future__ import annotations
 
-import json
 import re
 
-from app.core.config import settings
+from app.ai import llm
 
 # --------------------------------------------------------------------------- #
 # Markers — the vocabulary the heuristic keys off. Kept deliberately broad so a
@@ -250,46 +249,14 @@ _PROMPT = (
 
 
 def _maybe_enhance_with_llm(raw: str, fallback: dict) -> dict | None:
-    api_key = settings.anthropic_api_key
-    if not api_key or not raw.strip():
+    if not raw.strip() or not llm.is_available():
         return None
     try:
-        import httpx
-
-        resp = httpx.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={
-                "x-api-key": api_key,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            },
-            json={
-                "model": "claude-sonnet-4-6",
-                "max_tokens": 512,
-                "messages": [{"role": "user", "content": _PROMPT + raw}],
-            },
-            timeout=8.0,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        text = "".join(
-            block.get("text", "")
-            for block in data.get("content", [])
-            if block.get("type") == "text"
-        )
-        parsed = _coerce(json.loads(_extract_json(text)))
-        return parsed
+        obj = llm.structured_complete(_PROMPT + raw, max_tokens=512)
+        return _coerce(obj)
     except Exception:
         # Any failure (no network, bad key, malformed JSON, timeout) → heuristic.
         return None
-
-
-def _extract_json(text: str) -> str:
-    start = text.find("{")
-    end = text.rfind("}")
-    if start == -1 or end == -1 or end < start:
-        raise ValueError("no JSON object in model reply")
-    return text[start : end + 1]
 
 
 def _coerce(obj: object) -> dict:

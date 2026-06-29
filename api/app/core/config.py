@@ -37,8 +37,13 @@ class Settings(BaseSettings):
     default_currency: str = "AUD"
     default_gst_rate: str = "0.10"
 
-    # AI (optional; not used by foundation)
+    # AI (optional). When ``anthropic_api_key`` is unset every AI path degrades
+    # to a deterministic, network-free heuristic — so tests / CI run offline.
     anthropic_api_key: str | None = None
+    anthropic_model: str = "claude-sonnet-4-6"
+    anthropic_base_url: str = "https://api.anthropic.com"
+    anthropic_timeout: float = 8.0
+    anthropic_max_tokens: int = 1024
 
 
 @lru_cache

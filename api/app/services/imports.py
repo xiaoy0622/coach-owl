@@ -368,7 +368,11 @@ def _norm_status(value: str) -> str:
 # Job persistence + commit
 # --------------------------------------------------------------------------- #
 def create_parse_job(db: Session, org_id: uuid.UUID, raw_input: str) -> ImportJob:
-    parsed = parse_text(raw_input)
+    # LLM-first when a key is configured; the parser falls back to ``parse_text``
+    # (the deterministic heuristic below) on no key or any failure.
+    from app.ai.import_parser import parse_import
+
+    parsed = parse_import(raw_input)
     job = ImportJob(
         org_id=org_id,
         raw_input=raw_input,
