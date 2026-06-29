@@ -35,3 +35,9 @@ dist-ssr
 
 # Test / coverage
 coverage
+
+# Playwright e2e
+/playwright-report
+/test-results
+/blob-report
+/playwright/.cache
